@@ -156,6 +156,16 @@ input.txt[type=date]{color-scheme:dark}
 .badge{display:inline-block;font-size:12px;padding:2px 8px;border-radius:20px;background:var(--card2);color:var(--mut)}
 .badge.day{background:rgba(79,140,255,.16);color:var(--acc)}
 .empty{text-align:center;color:var(--mut);padding:30px 10px;line-height:1.6}
+/* чат з тренером */
+.chatwrap{display:flex;flex-direction:column;gap:8px;padding:4px 0 10px}
+.msg{max-width:86%;padding:10px 13px;border-radius:15px;font-size:15px;line-height:1.5;white-space:pre-wrap;word-break:break-word}
+.msg.me{align-self:flex-end;background:var(--acc);color:#fff;border-bottom-right-radius:5px}
+.msg.ai{align-self:flex-start;background:var(--card2);border:1px solid var(--line);border-bottom-left-radius:5px}
+.msg.sys{align-self:center;color:var(--mut);font-size:12.5px;text-align:center;max-width:95%}
+.msg .mt{display:block;font-size:11px;opacity:.65;margin-top:4px}
+.chatin{display:flex;gap:8px;margin-top:6px}
+.chatin input{flex:1}
+.chatin button{flex:0 0 96px}
 /* таймер відпочинку */
 #timerBar{position:fixed;left:10px;right:10px;bottom:calc(76px + env(safe-area-inset-bottom));
   z-index:15;display:none;align-items:center;gap:10px;background:#101a2e;
@@ -188,6 +198,7 @@ input.txt[type=date]{color-scheme:dark}
   <button id="tab-log" onclick="go('log')"><span class="ic">🏋️</span>Сьогодні</button>
   <button id="tab-hist" onclick="go('hist')"><span class="ic">📅</span>Історія</button>
   <button id="tab-prog" onclick="go('prog')"><span class="ic">📈</span>Прогрес</button>
+  <button id="tab-coach" onclick="go('coach')"><span class="ic">🤖</span>Тренер</button>
   <button id="tab-more" onclick="go('more')"><span class="ic">⚙️</span>Ще</button>
 </nav>
 
@@ -271,6 +282,9 @@ function load(){
   if(!s.pending) s.pending = [];
   if(s.dirty===undefined) s.dirty = false;
   if(s.lastSync===undefined) s.lastSync = null;
+  if(!s.advice) s.advice = null;   // {text, date}
+  if(!s.chat) s.chat = [];         // [{who:'me'|'ai'|'sys', t, ts}]
+  if(s.lastChatTs===undefined) s.lastChatTs = 0;
   return s;
 }
 function save(){ localStorage.setItem(KEY, JSON.stringify(S)); }
@@ -310,7 +324,7 @@ function render(){
   document.querySelectorAll('nav button').forEach(b=>b.classList.remove('act'));
   document.getElementById('tab-'+view).classList.add('act');
   document.getElementById('hDate').textContent = fmtD(todayISO());
-  const titles={log:'Тренування',hist:'Історія',prog:'Прогрес',more:'Налаштування'};
+  const titles={log:'Тренування',hist:'Історія',prog:'Прогрес',coach:'Твій тренер',more:'Налаштування'};
   const h1=document.getElementById('hTitle');
   if(view==='prog' && progEx){
     h1.innerHTML = `<button class="back" onclick="progEx=null;render()">‹ Назад</button>`;
@@ -319,6 +333,8 @@ function render(){
   if(view==='log') m.innerHTML=vLog();
   if(view==='hist') m.innerHTML=vHist();
   if(view==='prog') m.innerHTML= progEx ? vExDetail(progEx) : vProg();
+  if(view==='coach'){ m.innerHTML=vCoach(); pollChat();
+    setTimeout(()=>window.scrollTo(0,document.body.scrollHeight),50); }
   if(view==='more') m.innerHTML=vMore();
 }
 
@@ -578,6 +594,21 @@ function setSyncUrl(){
   if(v) fullSync();
 }
 window.addEventListener('online', trySync);
+let advFetched=0;
+function fetchAdvice(force){
+  if(!S.syncUrl || !navigator.onLine) return;
+  if(!force && Date.now()-advFetched < 10*60*1000) return;
+  advFetched=Date.now();
+  fetch(S.syncUrl+'?q=advice').then(r=>r.json()).then(j=>{
+    if(j && j.ok && j.text){
+      if(!S.advice || S.advice.text!==j.text){
+        S.advice={text:j.text, date:j.date}; save();
+        if(view==='prog' && !progEx) render();
+      }
+    }
+  }).catch(()=>{});
+}
+const escH = t => t.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
 
 /* ---------- таймер відпочинку ---------- */
 let tEnd=null, tInt=null, audioCtx=null;
@@ -851,6 +882,14 @@ function vProg(){
     <div class="kpi"><div class="v">${tw.sets}</div><div class="l">підходів</div><div class="d">${delta(tw.sets,lw.sets,'')}</div></div>
     <div class="kpi"><div class="v">${fmtN(tw.ton)}</div><div class="l">тоннаж, кг</div><div class="d">${delta(tw.ton,lw.ton,'')}</div></div>
   </div>`;
+  // порада від Claude
+  if(S.syncUrl){
+    fetchAdvice(false);
+    if(S.advice && S.advice.text){
+      h+=`<div class="card" style="border-color:#3a557f"><h3>🤖 Порада від Claude · ${S.advice.date?fmtD(S.advice.date):''}</h3>
+        <div style="font-size:15px;line-height:1.55;white-space:pre-wrap">${escH(S.advice.text)}</div></div>`;
+    }
+  }
   const weeks=[];
   for(let i=7;i>=0;i--){ const w=weekAgg(i); weeks.push({lbl:w.lbl, y:Math.round(w.ton), tip:'тиждень з '+w.lbl}); }
   h+=`<div class="card"><h3>Тоннаж по тижнях, кг</h3>${barChart(weeks,'кг')}</div>`;
@@ -955,6 +994,59 @@ function setGoal(ex){
   save(); render();
 }
 
+/* ---------- тренер ---------- */
+let chatBusy=false, chatPoll=0;
+function vCoach(){
+  let h='';
+  if(!S.syncUrl){
+    return `<div class="empty">Щоб тренер запрацював, спершу підключи синхронізацію з таблицею («Ще» → Синхронізація) 🙂</div>`;
+  }
+  h+=`<div class="card"><h3>🤖 Claude — твій тренер</h3>
+    <div class="hint">Пиши питання — я читаю їх разом із твоїм журналом і відповідаю зазвичай до вечора. Про техніку, програму, харчування, коліно — питай що завгодно.</div></div>`;
+  h+=`<div class="chatwrap">`;
+  if(!S.chat.length){
+    h+=`<div class="msg ai">Привіт, Денисе! Я твій тренер. Питай про програму, ваги, техніку чи харчування — я бачу весь твій журнал 💪</div>`;
+  }
+  S.chat.slice(-60).forEach(m=>{
+    h+=`<div class="msg ${m.who}">${escH(m.t)}${m.ts?`<span class="mt">${new Date(m.ts).toLocaleString('uk-UA',{day:'2-digit',month:'2-digit',hour:'2-digit',minute:'2-digit'})}</span>`:''}</div>`;
+  });
+  if(chatBusy) h+=`<div class="msg ai">…</div>`;
+  h+=`</div>
+  <div class="chatin">
+    <input class="txt" id="chIn" placeholder="Напиши тренеру…" onkeydown="if(event.key==='Enter')sendChat()">
+    <button class="btn small" onclick="sendChat()">➤</button>
+  </div>`;
+  return h;
+}
+function sendChat(){
+  const el=document.getElementById('chIn');
+  const t=(el.value||'').trim();
+  if(!t || chatBusy) return;
+  el.value='';
+  S.chat.push({who:'me', t, ts:Date.now()});
+  syncPost({action:'ask', text:t}).then(j=>{
+    if(!(j&&j.ok)) throw 0;
+    S.chat.push({who:'sys', t:'✉️ Надіслано тренеру. Відповідь з\'явиться тут — зазвичай до вечора.', ts:Date.now()});
+  }).catch(()=>{
+    S.chat.push({who:'sys', t:'⚠️ Не вдалося надіслати. Перевір інтернет і надішли ще раз.', ts:Date.now()});
+  }).finally(()=>{ save(); render(); });
+}
+function pollChat(){
+  if(!S.syncUrl) return;
+  if(Date.now()-chatPoll < 60*1000) return;
+  chatPoll=Date.now();
+  fetch(S.syncUrl+'?q=chat').then(r=>r.json()).then(j=>{
+    if(!(j&&j.ok&&j.rows)) return;
+    let added=false;
+    j.rows.forEach(row=>{
+      if(row.who==='a' && row.ts>S.lastChatTs){
+        S.chat.push({who:'ai', t:row.text, ts:row.ts});
+        S.lastChatTs=row.ts; added=true;
+      }
+    });
+    if(added){ save(); if(view==='coach') render(); }
+  }).catch(()=>{});
+}
 /* ---------- ще ---------- */
 function vMore(){
   const bw=[...S.bw].sort((a,b)=>a.d<b.d?1:-1);
@@ -1007,20 +1099,13 @@ function vMore(){
     <button class="btn ghost small" style="color:var(--bad)" onclick="if(confirm('Відключити синхронізацію?')){S.syncUrl='';S.pending=[];S.dirty=false;save();render();}">Відключити</button>`;
   }
   h+=`</div>
-  <div class="card"><h3>Бекап</h3>
-    <div class="hint" style="margin-bottom:10px">Дані живуть у цьому телефоні. Раз на кілька тижнів роби бекап — файл можна скинути собі в Telegram/iCloud.</div>
-    <div class="row">
-      <button class="btn ghost small" onclick="exportJSON()">💾 Бекап (JSON)</button>
-      <button class="btn ghost small" onclick="exportCSV()">📄 CSV для таблиці</button>
-    </div>
+  <div class="card"><h3>Дані</h3>
+    <div class="hint" style="margin-bottom:10px">Все автоматично зберігається в Google Таблиці — вона і є твій бекап. Якщо зміниш телефон чи почистиш Safari — просто підключи синхронізацію і натисни цю кнопку.</div>
+    <button class="btn ghost small" onclick="restoreFromSheet()">📥 Відновити історію з таблиці</button>
     <div style="height:8px"></div>
-    <button class="btn ghost small" onclick="document.getElementById('impF').click()">📥 Відновити з бекапу</button>
-    <input type="file" id="impF" accept=".json" style="display:none" onchange="importJSON(this)">
+    <button class="btn ghost small" style="color:var(--bad)" onclick="wipe()">Стерти всі дані на телефоні</button>
   </div>
-  <div class="card"><h3>Небезпечна зона</h3>
-    <button class="btn ghost small" style="color:var(--bad)" onclick="wipe()">Стерти всі дані</button>
-  </div>
-  <div class="hint" style="text-align:center;padding:4px">Зроблено для Дениса 💪 v1.5</div>`;
+  <div class="hint" style="text-align:center;padding:4px">Зроблено для Дениса 💪 v1.7</div>`;
   return h;
 }
 function restAdj(dv){ S.rest=Math.max(15,Math.min(600,S.rest+dv)); save(); render(); }
@@ -1032,37 +1117,19 @@ function addBw(){
   if(S.syncUrl){ S.pending.push({t:'bw', d:todayISO(), kg:v}); }
   save(); render(); trySync();
 }
-function dl(name, text, type){
-  const blob=new Blob([text],{type});
-  const f=new File([blob],name,{type});
-  if(navigator.canShare && navigator.canShare({files:[f]})){
-    navigator.share({files:[f]}).catch(()=>{});
-  } else {
-    const a=document.createElement('a');
-    a.href=URL.createObjectURL(blob); a.download=name; a.click();
-    setTimeout(()=>URL.revokeObjectURL(a.href),5000);
-  }
-}
-function exportJSON(){ dl('gym-backup-'+todayISO()+'.json', JSON.stringify(S), 'application/json'); }
-function exportCSV(){
-  let c='Дата;День;Вправа;Підхід;Вага кг;Повтори;Коліно\n';
-  const byDay={};
-  S.sets.forEach(s=>{ const k=s.d+'|'+s.ex; byDay[k]=(byDay[k]||0)+1;
-    c+=[fmtD(s.d),S.days[s.d]||'',s.ex,byDay[k],fmtW(s.w),s.r,s.knee||''].join(';')+'\n'; });
-  c+='\nДата;Вага тіла кг\n';
-  S.bw.forEach(b=>{ c+=fmtD(b.d)+';'+fmtW(b.kg)+'\n'; });
-  dl('gym-export-'+todayISO()+'.csv', '﻿'+c, 'text/csv');
-}
-function importJSON(inp){
-  const f=inp.files[0]; if(!f) return;
-  const rd=new FileReader();
-  rd.onload=()=>{ try{
-    const s=JSON.parse(rd.result);
-    if(!s.sets) throw 0;
-    localStorage.setItem(KEY, JSON.stringify(s));
-    S=load(); render(); alert('Відновлено: '+S.sets.length+' підходів');
-  }catch(e){ alert('Це не схоже на файл бекапу'); } };
-  rd.readAsText(f);
+function restoreFromSheet(){
+  if(!S.syncUrl){ alert('Спершу підключи синхронізацію (URL таблиці) вище.'); return; }
+  if(!confirm('Замінити дані на телефоні тим, що зараз у таблиці?')) return;
+  fetch(S.syncUrl+'?q=data').then(r=>r.json()).then(j=>{
+    if(!(j&&j.ok&&j.sets)) throw 0;
+    S.sets = j.sets.map(v=>({
+      d:v[0], ex:String(v[1]), w:+v[3]||0, r:+v[4]||0,
+      knee: v[5]?String(v[5]):null,
+      base: String(v[6]||'').includes('до перерви')?1:undefined }));
+    S.bw = (j.bw||[]).map(v=>({d:v[0], kg:+v[1]||0}));
+    S.pending=[]; S.dirty=false; save(); render();
+    alert('Відновлено: '+S.sets.length+' підходів, '+S.bw.length+' записів ваги.');
+  }).catch(()=>alert('Не вдалося прочитати таблицю. Перевір інтернет і URL.'));
 }
 function wipe(){
   if(confirm('Точно стерти ВСЕ? Спершу зроби бекап!')){
