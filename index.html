@@ -1,0 +1,462 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
+<title>Щоденник тренувань</title>
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Треную">
+<meta name="theme-color" content="#0f1115">
+<style>
+:root{
+  --bg:#0f1115; --card:#1a1e27; --card2:#232836; --line:#2c3242;
+  --txt:#e8ebf2; --mut:#8a93a6; --acc:#4f8cff; --acc2:#2f6fe0;
+  --ok:#3ddc84; --warn:#ffb020; --bad:#ff5d5d;
+}
+*{box-sizing:border-box; -webkit-tap-highlight-color:transparent}
+html,body{margin:0;padding:0;background:var(--bg);color:var(--txt);
+  font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;
+  font-size:16px; overscroll-behavior-y:none}
+body{padding-bottom:calc(74px + env(safe-area-inset-bottom))}
+header{position:sticky;top:0;z-index:5;background:rgba(15,17,21,.92);
+  backdrop-filter:blur(10px);padding:calc(10px + env(safe-area-inset-top)) 16px 10px;
+  display:flex;justify-content:space-between;align-items:center;border-bottom:1px solid var(--line)}
+header h1{font-size:18px;margin:0;font-weight:700}
+header .date{color:var(--mut);font-size:14px}
+main{padding:14px 14px 20px;max-width:560px;margin:0 auto}
+.card{background:var(--card);border:1px solid var(--line);border-radius:16px;padding:14px;margin-bottom:12px}
+.card h3{margin:0 0 10px;font-size:15px;color:var(--mut);font-weight:600;text-transform:uppercase;letter-spacing:.4px}
+.btn{display:block;width:100%;padding:15px;border:none;border-radius:14px;
+  background:var(--acc);color:#fff;font-size:17px;font-weight:700;cursor:pointer}
+.btn:active{background:var(--acc2)}
+.btn.ghost{background:var(--card2);color:var(--txt);border:1px solid var(--line);font-weight:600}
+.btn.small{padding:10px;font-size:15px;border-radius:12px}
+.row{display:flex;gap:10px}
+.row>*{flex:1}
+/* степери */
+.stepper{display:flex;align-items:center;gap:8px;background:var(--card2);
+  border:1px solid var(--line);border-radius:14px;padding:6px}
+.stepper button{width:52px;height:52px;border:none;border-radius:11px;background:var(--card);
+  color:var(--acc);font-size:24px;font-weight:700;cursor:pointer;flex:none}
+.stepper button:active{background:#11141b}
+.stepper .val{flex:1;text-align:center}
+.stepper .val input{width:100%;background:none;border:none;color:var(--txt);
+  font-size:26px;font-weight:800;text-align:center;outline:none;padding:0}
+.stepper .val .lbl{font-size:12px;color:var(--mut)}
+/* вибір вправи */
+#exBtn{display:flex;justify-content:space-between;align-items:center;background:var(--card2);
+  border:1px solid var(--line);border-radius:14px;padding:14px;cursor:pointer}
+#exBtn .n{font-size:17px;font-weight:700}
+#exBtn .g{color:var(--mut);font-size:13px}
+.sheet{position:fixed;inset:0;z-index:20;background:rgba(0,0,0,.55);display:none}
+.sheet.open{display:block}
+.sheet .panel{position:absolute;left:0;right:0;bottom:0;max-height:82vh;overflow:auto;
+  background:var(--card);border-radius:20px 20px 0 0;padding:14px 14px calc(20px + env(safe-area-inset-bottom))}
+.sheet h2{font-size:17px;margin:2px 4px 12px}
+.exgroup{color:var(--acc);font-size:13px;font-weight:700;text-transform:uppercase;
+  letter-spacing:.5px;margin:14px 4px 6px}
+.exitem{padding:13px 12px;border-radius:12px;background:var(--card2);margin-bottom:6px;cursor:pointer}
+.exitem .nn{font-weight:600}
+.exitem .nt{color:var(--mut);font-size:13px;margin-top:2px}
+.exitem.knee .nn::after{content:' ⚠️'}
+/* сети */
+.set{display:flex;align-items:center;gap:10px;padding:10px 4px;border-bottom:1px solid var(--line)}
+.set:last-child{border-bottom:none}
+.set .num{width:26px;height:26px;border-radius:50%;background:var(--card2);color:var(--mut);
+  display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;flex:none}
+.set .wr{flex:1;font-size:17px;font-weight:700}
+.set .wr small{color:var(--mut);font-weight:400}
+.set .del{border:none;background:none;color:var(--mut);font-size:20px;padding:6px;cursor:pointer}
+.hint{color:var(--mut);font-size:14px;line-height:1.5}
+.kneebar{display:flex;gap:8px;margin-top:10px}
+.kneebar button{flex:1;padding:11px;border-radius:11px;border:1px solid var(--line);
+  background:var(--card2);color:var(--txt);font-size:15px;cursor:pointer}
+.kneebar button.on-ok{background:rgba(61,220,132,.16);border-color:var(--ok);color:var(--ok)}
+.kneebar button.on-warn{background:rgba(255,176,32,.16);border-color:var(--warn);color:var(--warn)}
+.kneebar button.on-bad{background:rgba(255,93,93,.16);border-color:var(--bad);color:var(--bad)}
+/* таби */
+nav{position:fixed;left:0;right:0;bottom:0;z-index:10;display:flex;
+  background:rgba(20,23,30,.96);backdrop-filter:blur(10px);border-top:1px solid var(--line);
+  padding:6px 6px calc(6px + env(safe-area-inset-bottom))}
+nav button{flex:1;border:none;background:none;color:var(--mut);font-size:11px;
+  padding:6px 2px;cursor:pointer;border-radius:10px}
+nav button .ic{display:block;font-size:22px;margin-bottom:2px}
+nav button.act{color:var(--acc)}
+/* прогрес */
+.stat{display:flex;justify-content:space-between;padding:9px 2px;border-bottom:1px solid var(--line);font-size:15px}
+.stat:last-child{border-bottom:none}
+.stat b{font-size:16px}
+.pex{padding:11px 2px;border-bottom:1px solid var(--line)}
+.pex:last-child{border-bottom:none}
+.pex .t{font-weight:700}
+.pex .s{color:var(--mut);font-size:14px;margin-top:3px}
+.up{color:var(--ok)} .down{color:var(--bad)}
+.day{margin-bottom:10px}
+.day .dh{display:flex;justify-content:space-between;color:var(--mut);font-size:14px;
+  font-weight:600;padding:4px 2px 8px}
+input.txt{width:100%;background:var(--card2);border:1px solid var(--line);border-radius:12px;
+  color:var(--txt);font-size:17px;padding:13px;outline:none}
+.badge{display:inline-block;font-size:12px;padding:2px 8px;border-radius:20px;background:var(--card2);color:var(--mut)}
+.empty{text-align:center;color:var(--mut);padding:30px 10px;line-height:1.6}
+</style>
+</head>
+<body>
+<header>
+  <h1 id="hTitle">Тренування</h1>
+  <span class="date" id="hDate"></span>
+</header>
+<main id="main"></main>
+
+<nav>
+  <button id="tab-log" onclick="go('log')"><span class="ic">🏋️</span>Сьогодні</button>
+  <button id="tab-hist" onclick="go('hist')"><span class="ic">📅</span>Історія</button>
+  <button id="tab-prog" onclick="go('prog')"><span class="ic">📈</span>Прогрес</button>
+  <button id="tab-more" onclick="go('more')"><span class="ic">⚙️</span>Ще</button>
+</nav>
+
+<div class="sheet" id="sheet" onclick="if(event.target===this)closeSheet()">
+  <div class="panel" id="sheetBody"></div>
+</div>
+
+<script>
+'use strict';
+/* ---------- дані ---------- */
+const EXES = [
+ ['Жим лежачи','Груди',0,'було 70×4 — вертайся з ~50 кг'],
+ ['Жим гантелей лежачи','Груди',0,'безпечніше після перерви'],
+ ['Жим у тренажері на груди','Груди',0,'для входу перші тижні'],
+ ['Кросовер / розведення','Груди',0,'ізоляція, в кінці'],
+ ['Тяга вертикального блока','Спина',0,'було 53×11 — старт 40–45'],
+ ['Тяга горизонтального блока','Спина',0,'було 59×8 — старт 45–50'],
+ ['Підтягування / гравітрон','Спина',0,'широка спина — твій актив'],
+ ['Тяга гантелі в нахилі','Спина',0,'з упором, спина рівна'],
+ ['Жим гантелей сидячи','Плечі',0,'основна на плечі'],
+ ['Махи гантелями в сторони','Плечі',0,'легка вага, чисто'],
+ ['Махи в кросовері','Плечі',0,'було 11×12'],
+ ['Розведення в нахилі (задня дельта)','Плечі',0,'для балансу і постави'],
+ ['Біцепс з гантелями','Руки',0,'було 17,5×8 — старт 12–14'],
+ ['Біцепс на блоці','Руки',0,'альтернатива гантелям'],
+ ['Трицепс на кросовері','Руки',0,'було 59×14'],
+ ['Французький жим / розгинання','Руки',0,'друга на трицепс'],
+ ['Жим ногами','Ноги',1,'КОЛІНО: коротка амплітуда, без болю'],
+ ['Розгинання ніг','Ноги',1,'КОЛІНО: дуже легко'],
+ ['Згинання ніг лежачи','Ноги',1,'зазвичай не чіпає коліно'],
+ ['Румунська тяга з гантелями','Ноги',1,'коліна майже прямі'],
+ ['Сідничний міст / hip thrust','Ноги',1,'без навантаження на коліно'],
+ ['Гоблет-присід','Ноги',1,'тільки коли коліно ок'],
+ ['Литки стоячи','Ноги',0,'безпечно для коліна'],
+ ['Планка','Кор',0,'у «повтори» пиши секунди'],
+ ['Скручування на блоці','Кор',0,'прес із навантаженням'],
+ ['Підйом ніг у висі','Кор',0,'низ преса'],
+];
+const BASE_DATE='2026-02-15';
+const BASELINE=[
+ ['Жим лежачи',[[35,10],[60,12],[65,8],[70,4]]],
+ ['Тяга горизонтального блока',[[35,12],[59,8],[59,8],[59,8]]],
+ ['Тяга вертикального блока',[[53,11],[53,9],[53,9]]],
+ ['Махи в кросовері',[[11,12],[11,12],[11,10]]],
+ ['Біцепс з гантелями',[[17.5,8],[17.5,7],[15,10]]],
+ ['Трицепс на кросовері',[[59,14],[59,12],[65,11]]],
+];
+const KEY='gymlog-denys-v1';
+let S = load();
+function load(){
+  try{ const s = JSON.parse(localStorage.getItem(KEY)); if(s && s.sets) return s; }catch(e){}
+  const s = {sets:[], bw:[{d:'2026-07-20',kg:76}], custom:[]};
+  BASELINE.forEach(([ex,arr])=>arr.forEach(([w,r],i)=>
+    s.sets.push({d:BASE_DATE,ex,w,r,knee:null,base:1})));
+  return s;
+}
+function save(){ localStorage.setItem(KEY, JSON.stringify(S)); }
+function allEx(){ return EXES.map(e=>({n:e[0],g:e[1],knee:!!e[2],note:e[3]}))
+  .concat(S.custom.map(n=>({n,g:'Мої вправи',knee:false,note:''}))); }
+function exInfo(n){ return allEx().find(e=>e.n===n) || {n,g:'',knee:false,note:''}; }
+
+/* ---------- утиліти ---------- */
+const todayISO = () => { const t=new Date(); return t.getFullYear()+'-'+String(t.getMonth()+1).padStart(2,'0')+'-'+String(t.getDate()).padStart(2,'0'); };
+const fmtD = iso => { const [y,m,d]=iso.split('-'); return d+'.'+m+'.'+y.slice(2); };
+const fmtW = w => (Math.round(w*100)/100).toString().replace('.',',');
+const e1rm = (w,r) => Math.round(w*(1+r/30)*10)/10;
+const uniqDays = sets => [...new Set(sets.map(s=>s.d))];
+
+/* ---------- стан вводу ---------- */
+let cur = { ex:null, w:50, r:10, knee:null };
+let view = 'log';
+
+/* ---------- навігація ---------- */
+function go(v){ view=v; render(); }
+function render(){
+  document.querySelectorAll('nav button').forEach(b=>b.classList.remove('act'));
+  document.getElementById('tab-'+view).classList.add('act');
+  document.getElementById('hDate').textContent = fmtD(todayISO());
+  const titles={log:'Тренування',hist:'Історія',prog:'Прогрес',more:'Налаштування'};
+  document.getElementById('hTitle').textContent = titles[view];
+  const m=document.getElementById('main');
+  if(view==='log') m.innerHTML=vLog();
+  if(view==='hist') m.innerHTML=vHist();
+  if(view==='prog') m.innerHTML=vProg();
+  if(view==='more') m.innerHTML=vMore();
+}
+
+/* ---------- екран: сьогодні ---------- */
+function lastSession(ex){
+  const days = uniqDays(S.sets.filter(s=>s.ex===ex && s.d!==todayISO())).sort();
+  if(!days.length) return null;
+  const d = days[days.length-1];
+  return {d, sets:S.sets.filter(s=>s.ex===ex && s.d===d)};
+}
+function vLog(){
+  const e = cur.ex ? exInfo(cur.ex) : null;
+  const last = cur.ex ? lastSession(cur.ex) : null;
+  const today = S.sets.filter(s=>s.d===todayISO());
+  const byEx = {};
+  today.forEach(s=>{ (byEx[s.ex]=byEx[s.ex]||[]).push(s); });
+  let h = `<div class="card">
+    <div id="exBtn" onclick="openExSheet()">
+      <div><div class="n">${e?e.n:'Обери вправу'}</div>
+      <div class="g">${e?(e.g+(e.note?' · '+e.note:'')):'тицьни сюди 👆'}</div></div>
+      <div style="color:var(--mut)">▾</div>
+    </div>`;
+  if(e){
+    h += `<div style="height:10px"></div>`;
+    if(last) h += `<div class="hint">Минулого разу (${fmtD(last.d)}): ${
+      last.sets.map(s=>fmtW(s.w)+'×'+s.r).join(', ')}</div><div style="height:10px"></div>`;
+    h += `<div class="row">
+      <div class="stepper">
+        <button onclick="bump('w',-2.5)">−</button>
+        <div class="val"><input id="inW" inputmode="decimal" value="${fmtW(cur.w)}"
+          onchange="cur.w=parseFloat(this.value.replace(',','.'))||0"><div class="lbl">кг</div></div>
+        <button onclick="bump('w',2.5)">+</button>
+      </div></div>
+    <div style="height:8px"></div>
+    <div class="row">
+      <div class="stepper">
+        <button onclick="bump('r',-1)">−</button>
+        <div class="val"><input id="inR" inputmode="numeric" value="${cur.r}"
+          onchange="cur.r=parseInt(this.value)||0"><div class="lbl">повтори</div></div>
+        <button onclick="bump('r',1)">+</button>
+      </div></div>`;
+    if(e.knee){
+      h += `<div class="kneebar">
+        <button class="${cur.knee==='ок'?'on-ok':''}" onclick="setKnee('ок')">✅ ок</button>
+        <button class="${cur.knee==='тягне'?'on-warn':''}" onclick="setKnee('тягне')">⚠️ тягне</button>
+        <button class="${cur.knee==='біль'?'on-bad':''}" onclick="setKnee('біль')">🛑 біль</button>
+      </div>`;
+    }
+    h += `<div style="height:12px"></div><button class="btn" onclick="addSet()">＋ Додати підхід</button>`;
+  }
+  h += `</div>`;
+  const exNames = Object.keys(byEx);
+  if(exNames.length){
+    h += `<div class="card"><h3>Сьогодні · ${today.length} підх. · ${
+      Math.round(today.reduce((a,s)=>a+s.w*s.r,0))} кг тоннаж</h3>`;
+    exNames.forEach(ex=>{
+      h += `<div style="font-weight:700;margin:8px 0 2px">${ex}</div>`;
+      byEx[ex].forEach((s)=>{
+        const idx = S.sets.indexOf(s);
+        h += `<div class="set"><div class="num">${byEx[ex].indexOf(s)+1}</div>
+          <div class="wr">${fmtW(s.w)} кг × ${s.r}
+            <small>· ${Math.round(s.w*s.r)} кг${s.knee?' · коліно: '+s.knee:''}</small></div>
+          <button class="del" onclick="delSet(${idx})">✕</button></div>`;
+      });
+    });
+    h += `</div>`;
+  } else if(!e){
+    h += `<div class="empty">Обери вправу і закинь перший підхід 💪<br>Сірі записи від 15.02.26 — твої ваги до перерви (орієнтир).</div>`;
+  }
+  return h;
+}
+function bump(k,dv){
+  cur[k] = Math.max(0, Math.round((cur[k]+dv)*100)/100);
+  const el = document.getElementById(k==='w'?'inW':'inR');
+  if(el) el.value = k==='w'?fmtW(cur.w):cur.r;
+}
+function setKnee(v){ cur.knee = cur.knee===v?null:v; render(); }
+function addSet(){
+  const wEl=document.getElementById('inW'), rEl=document.getElementById('inR');
+  if(wEl) cur.w=parseFloat(wEl.value.replace(',','.'))||0;
+  if(rEl) cur.r=parseInt(rEl.value)||0;
+  if(!cur.ex || !cur.r){ return; }
+  S.sets.push({d:todayISO(), ex:cur.ex, w:cur.w, r:cur.r, knee:cur.knee});
+  save(); render();
+  if(navigator.vibrate) navigator.vibrate(30);
+}
+function delSet(i){ S.sets.splice(i,1); save(); render(); }
+
+/* ---------- вибір вправи ---------- */
+function openExSheet(){
+  const groups={};
+  allEx().forEach(e=>{ (groups[e.g]=groups[e.g]||[]).push(e); });
+  let h = `<h2>Вправа</h2>`;
+  Object.keys(groups).forEach(g=>{
+    h += `<div class="exgroup">${g}${g==='Ноги'?' (обережно з коліном)':''}</div>`;
+    groups[g].forEach(e=>{
+      h += `<div class="exitem ${e.knee?'knee':''}" onclick="pickEx('${e.n.replace(/'/g,"\\'")}')">
+        <div class="nn">${e.n}</div>${e.note?`<div class="nt">${e.note}</div>`:''}</div>`;
+    });
+  });
+  h += `<div style="height:8px"></div><button class="btn ghost small" onclick="addCustomEx()">＋ Своя вправа</button>`;
+  document.getElementById('sheetBody').innerHTML=h;
+  document.getElementById('sheet').classList.add('open');
+}
+function closeSheet(){ document.getElementById('sheet').classList.remove('open'); }
+function pickEx(n){
+  cur.ex=n; cur.knee=null;
+  const last=lastSession(n);
+  if(last){ const b=last.sets[last.sets.length-1]; cur.w=b.w; cur.r=b.r; }
+  closeSheet(); render();
+}
+function addCustomEx(){
+  const n=prompt('Назва вправи:');
+  if(n && n.trim()){ S.custom.push(n.trim()); save(); pickEx(n.trim()); }
+}
+
+/* ---------- історія ---------- */
+function vHist(){
+  const days = uniqDays(S.sets).sort().reverse();
+  if(!days.length) return `<div class="empty">Ще нема записів</div>`;
+  let h='';
+  days.forEach(d=>{
+    const sets=S.sets.filter(s=>s.d===d);
+    const ton=Math.round(sets.reduce((a,s)=>a+s.w*s.r,0));
+    const isBase=sets.some(s=>s.base);
+    h+=`<div class="card day"><div class="dh"><span>${fmtD(d)}${isBase?' <span class="badge">до перерви</span>':''}</span><span>${sets.length} підх. · ${ton} кг</span></div>`;
+    const byEx={}; sets.forEach(s=>{(byEx[s.ex]=byEx[s.ex]||[]).push(s);});
+    Object.keys(byEx).forEach(ex=>{
+      h+=`<div style="padding:4px 2px"><b>${ex}</b><br><span class="hint">${
+        byEx[ex].map(s=>fmtW(s.w)+'×'+s.r+(s.knee?'('+s.knee+')':'')).join(', ')}</span></div>`;
+    });
+    h+=`</div>`;
+  });
+  return h;
+}
+
+/* ---------- прогрес ---------- */
+function vProg(){
+  const real = S.sets;
+  const days = uniqDays(real);
+  const now = new Date(); const wk = new Date(now.getTime()-7*864e5);
+  const ton7 = Math.round(real.filter(s=>new Date(s.d)>=wk).reduce((a,s)=>a+s.w*s.r,0));
+  let h = `<div class="card"><h3>Зведення</h3>
+    <div class="stat"><span>Тренувань</span><b>${days.length}</b></div>
+    <div class="stat"><span>Підходів</span><b>${real.length}</b></div>
+    <div class="stat"><span>Тоннаж за 7 днів</span><b>${ton7} кг</b></div>
+    <div class="stat"><span>Тоннаж всього</span><b>${Math.round(real.reduce((a,s)=>a+s.w*s.r,0))} кг</b></div>
+  </div>`;
+  const exs=[...new Set(real.map(s=>s.ex))];
+  if(exs.length){
+    h+=`<div class="card"><h3>По вправах</h3>`;
+    exs.forEach(ex=>{
+      const ss=real.filter(s=>s.ex===ex);
+      const cur_=ss.filter(s=>!s.base), base=ss.filter(s=>s.base);
+      const maxW=Math.max(...ss.map(s=>s.w));
+      const best=Math.max(...ss.map(s=>e1rm(s.w,s.r)));
+      const lastD=ss.map(s=>s.d).sort().slice(-1)[0];
+      let cmp='';
+      if(base.length && cur_.length){
+        const bBest=Math.max(...base.map(s=>e1rm(s.w,s.r)));
+        const cBest=Math.max(...cur_.map(s=>e1rm(s.w,s.r)));
+        const d=Math.round((cBest-bBest)*10)/10;
+        cmp = d>=0 ? ` · <span class="up">+${d} до 1ПМ vs до перерви</span>`
+                   : ` · <span class="down">${d} до 1ПМ vs до перерви</span>`;
+      }
+      h+=`<div class="pex"><div class="t">${ex}</div>
+        <div class="s">макс ${fmtW(maxW)} кг · 1ПМ ~${fmtW(best)} кг · останній раз ${fmtD(lastD)}${cmp}</div></div>`;
+    });
+    h+=`</div>`;
+  }
+  // коліно
+  const knees = real.filter(s=>s.knee && s.knee!=='ок');
+  if(knees.length){
+    h+=`<div class="card"><h3>Коліно ⚠️</h3>`;
+    knees.slice(-5).reverse().forEach(s=>{
+      h+=`<div class="stat"><span>${fmtD(s.d)} · ${s.ex}</span><b>${s.knee}</b></div>`;
+    });
+    h+=`</div>`;
+  }
+  return h;
+}
+
+/* ---------- ще ---------- */
+function vMore(){
+  const bw=[...S.bw].sort((a,b)=>a.d<b.d?1:-1);
+  let h = `<div class="card"><h3>Вага тіла</h3>
+    <div class="row"><input class="txt" id="bwIn" inputmode="decimal" placeholder="кг, напр. 75,4">
+    <button class="btn small" style="flex:0 0 110px" onclick="addBw()">Записати</button></div>
+    <div style="height:8px"></div>`;
+  bw.slice(0,8).forEach((b,i)=>{
+    const prev=bw[i+1];
+    const d0=S.bw[0]?S.bw.find(x=>x.d===S.bw.map(y=>y.d).sort()[0]):null;
+    const dS = d0? Math.round((b.kg-d0.kg)*10)/10 : 0;
+    h+=`<div class="stat"><span>${fmtD(b.d)}</span><b>${fmtW(b.kg)} кг <small style="color:${dS<=0?'var(--ok)':'var(--bad)'}">${dS>0?'+':''}${dS}</small></b></div>`;
+  });
+  h+=`</div>
+  <div class="card"><h3>Бекап</h3>
+    <div class="hint" style="margin-bottom:10px">Дані живуть у цьому телефоні. Раз на кілька тижнів роби бекап — файл можна скинути собі в Telegram/iCloud або мені в чат.</div>
+    <div class="row">
+      <button class="btn ghost small" onclick="exportJSON()">💾 Бекап (JSON)</button>
+      <button class="btn ghost small" onclick="exportCSV()">📄 CSV для таблиці</button>
+    </div>
+    <div style="height:8px"></div>
+    <button class="btn ghost small" onclick="document.getElementById('impF').click()">📥 Відновити з бекапу</button>
+    <input type="file" id="impF" accept=".json" style="display:none" onchange="importJSON(this)">
+  </div>
+  <div class="card"><h3>Небезпечна зона</h3>
+    <button class="btn ghost small" style="color:var(--bad)" onclick="wipe()">Стерти всі дані</button>
+  </div>
+  <div class="hint" style="text-align:center;padding:4px">Зроблено для Дениса 💪 v1.0</div>`;
+  return h;
+}
+function addBw(){
+  const v=parseFloat(document.getElementById('bwIn').value.replace(',','.'));
+  if(!v) return;
+  S.bw = S.bw.filter(b=>b.d!==todayISO());
+  S.bw.push({d:todayISO(),kg:v}); save(); render();
+}
+function dl(name, text, type){
+  const blob=new Blob([text],{type});
+  const f=new File([blob],name,{type});
+  if(navigator.canShare && navigator.canShare({files:[f]})){
+    navigator.share({files:[f]}).catch(()=>{});
+  } else {
+    const a=document.createElement('a');
+    a.href=URL.createObjectURL(blob); a.download=name; a.click();
+    setTimeout(()=>URL.revokeObjectURL(a.href),5000);
+  }
+}
+function exportJSON(){ dl('gym-backup-'+todayISO()+'.json', JSON.stringify(S), 'application/json'); }
+function exportCSV(){
+  let c='Дата;Вправа;Підхід;Вага кг;Повтори;Коліно\n';
+  const byDay={};
+  S.sets.forEach(s=>{ const k=s.d+'|'+s.ex; byDay[k]=(byDay[k]||0)+1;
+    c+=[fmtD(s.d),s.ex,byDay[k],fmtW(s.w),s.r,s.knee||''].join(';')+'\n'; });
+  c+='\nДата;Вага тіла кг\n';
+  S.bw.forEach(b=>{ c+=fmtD(b.d)+';'+fmtW(b.kg)+'\n'; });
+  dl('gym-export-'+todayISO()+'.csv', '﻿'+c, 'text/csv');
+}
+function importJSON(inp){
+  const f=inp.files[0]; if(!f) return;
+  const rd=new FileReader();
+  rd.onload=()=>{ try{
+    const s=JSON.parse(rd.result);
+    if(!s.sets) throw 0;
+    S=s; save(); render(); alert('Відновлено: '+S.sets.length+' підходів');
+  }catch(e){ alert('Це не схоже на файл бекапу'); } };
+  rd.readAsText(f);
+}
+function wipe(){
+  if(confirm('Точно стерти ВСЕ? Спершу зроби бекап!')){
+    localStorage.removeItem(KEY); S=load(); save(); render();
+  }
+}
+
+/* ---------- старт ---------- */
+render();
+if('serviceWorker' in navigator){ navigator.serviceWorker.register('sw.js').catch(()=>{}); }
+</script>
+</body>
+</html>
